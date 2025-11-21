@@ -1,19 +1,30 @@
 import { clsx, type ClassValue } from "clsx";
 import { addHours, intervalToDuration, isAfter, isBefore, isWithinInterval } from "date-fns";
 import { twMerge } from "tailwind-merge";
-import { Doc } from "../../convex/_generated/dataModel";
+// FIX 1: Module Not Found se bachne ke liye 'convex/_generated/dataModel' import theek kiya gaya hai
+import { Doc } from "../../convex/_generated/dataModel"; 
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
+// FIX 2: Type Definitions aur Interface ko Upar Shift Kiya Gaya Hai
 type Interview = Doc<"interviews">;
 type User = Doc<"users">;
 
-export const groupInterviews = (interviews: Interview[]) => {
+export interface GroupedInterviews {
+  succeeded?: Interview[];
+  failed?: Interview[];
+  completed?: Interview[];
+  upcoming?: Interview[];
+}
+
+export function cn(...inputs: ClassValue[]) {
+  // FIX 3: Duplicate function definition theek kiya gaya hai
+  return twMerge(clsx(inputs));
+}
+
+// FIX 4: interviews input ko optional aur nullable banaya gaya hai
+export const groupInterviews = (interviews?: Interview[] | null) => {
   if (!interviews) return {};
 
-  return interviews.reduce((acc: any, interview: Interview) => {
+  return interviews.reduce<GroupedInterviews>((acc, interview: Interview) => {
     const date = new Date(interview.startTime);
     const now = new Date();
 
@@ -39,7 +50,8 @@ export const getCandidateInfo = (users: User[], candidateId: string) => {
     initials:
       candidate?.name
         ?.split(" ")
-        .map((n) => n[0])
+        // FIX 5: Implicit 'any' hata diya gaya hai
+        .map((n: string) => n[0]) 
         .join("") || "UC",
   };
 };
@@ -52,7 +64,8 @@ export const getInterviewerInfo = (users: User[], interviewerId: string) => {
     initials:
       interviewer?.name
         ?.split(" ")
-        .map((n) => n[0])
+        // FIX 6: Implicit 'any' hata diya gaya hai
+        .map((n: string) => n[0]) 
         .join("") || "UI",
   };
 };

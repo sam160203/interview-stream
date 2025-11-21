@@ -5,7 +5,8 @@ import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import toast from "react-hot-toast";
 import LoaderUI from "@/components/LoaderUI";
-import { getCandidateInfo, groupInterviews } from "@/lib/utils";
+// FIX: GroupedInterviews interface ko import karna zaroori hai
+import { getCandidateInfo, groupInterviews, GroupedInterviews } from "@/lib/utils"; 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { INTERVIEW_CATEGORY } from "@/constants";
@@ -35,7 +36,7 @@ function DashboardPage() {
 
   if (!interviews || !users) return <LoaderUI />;
 
-  const groupedInterviews = groupInterviews(interviews);
+  const groupedInterviews = groupInterviews(interviews) as GroupedInterviews; 
 
   return (
     <div className="container mx-auto py-10">
@@ -47,80 +48,92 @@ function DashboardPage() {
 
       <div className="space-y-8">
         {INTERVIEW_CATEGORY.map(
-          (category) =>
-            groupedInterviews[category.id]?.length > 0 && (
-              <section key={category.id}>
-                {/* CATEGORY TITLE */}
-                <div className="flex items-center gap-2 mb-4">
-                  <h2 className="text-xl font-semibold">{category.title}</h2>
-                  <Badge variant={category.variant}>{groupedInterviews[category.id].length}</Badge>
-                </div>
+          (category) => {
+            // FIX 1: category.id ko valid key type mein cast karna
+            const categoryKey = category.id as keyof GroupedInterviews; 
+            const categoryInterviews = groupedInterviews[categoryKey]; 
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedInterviews[category.id].map((interview: Interview) => {
-                    const candidateInfo = getCandidateInfo(users, interview.candidateId);
-                    const startTime = new Date(interview.startTime);
+            return (
+              // FIX 2: Array existence aur length > 0 ki condition
+              categoryInterviews && categoryInterviews.length > 0 && (
+                <section key={category.id}>
+                  {/* CATEGORY TITLE */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <h2 className="text-xl font-semibold">{category.title}</h2>
+                    {/* FIX 3: Badge mein safe length check */}
+                    <Badge variant={category.variant}>
+                        {categoryInterviews.length}
+                    </Badge>
+                  </div>
 
-                    return (
-                      <Card key={interview._id} className="hover:shadow-md transition-all">
-                        
-                        {/* CANDIDATE INFO */}
-                        <CardHeader className="p-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={candidateInfo.image} />
-                              <AvatarFallback>{candidateInfo.initials}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <CardTitle className="text-base">{candidateInfo.name}</CardTitle>
-                              <p className="text-sm text-muted-foreground">{interview.title}</p>
-                            </div>
-                          </div>
-                        </CardHeader>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* FIX 4: Map chalaana ab safe hai kyunki humne upar check kar liya hai */}
+                    {categoryInterviews.map((interview: Interview) => {
+                      // FIX 5: users ko non-null assert karna
+                      const candidateInfo = getCandidateInfo(users!, interview.candidateId);
+                      const startTime = new Date(interview.startTime);
 
-                        {/* DATE &  TIME */}
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <CalendarIcon className="h-4 w-4" />
-                              {format(startTime, "MMM dd")}
+                      return (
+                        <Card key={interview._id} className="hover:shadow-md transition-all">
+                          {/* CANDIDATE INFO */}
+                          <CardHeader className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={candidateInfo.image} />
+                                <AvatarFallback>{candidateInfo.initials}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <CardTitle className="text-base">{candidateInfo.name}</CardTitle>
+                                <p className="text-sm text-muted-foreground">{interview.title}</p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <ClockIcon className="h-4 w-4" />
-                              {format(startTime, "hh:mm a")}
-                            </div>
-                          </div>
-                        </CardContent>
+                          </CardHeader>
 
-                        {/* PASS & FAIL BUTTONS */}
-                        <CardFooter className="p-4 pt-0 flex flex-col gap-3">
-                          {interview.status === "completed" && (
-                            <div className="flex gap-2 w-full">
-                              <Button
-                                className="flex-1"
-                                onClick={() => handleStatusUpdate(interview._id, "succeeded")}
-                              >
-                                <CheckCircle2Icon className="h-4 w-4 mr-2" />
-                                Pass
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                className="flex-1"
-                                onClick={() => handleStatusUpdate(interview._id, "failed")}
-                              >
-                                <XCircleIcon className="h-4 w-4 mr-2" />
-                                Fail
-                              </Button>
+                          {/* DATE &  TIME */}
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <CalendarIcon className="h-4 w-4" />
+                                {format(startTime, "MMM dd")}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <ClockIcon className="h-4 w-4" />
+                                {format(startTime, "hh:mm a")}
+                              </div>
                             </div>
-                          )}
-                          <CommentDialog interviewId={interview._id} />
-                        </CardFooter>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </section>
-            )
+                          </CardContent>
+
+                          {/* PASS & FAIL BUTTONS */}
+                          <CardFooter className="p-4 pt-0 flex flex-col gap-3">
+                            {interview.status === "completed" && (
+                              <div className="flex gap-2 w-full">
+                                <Button
+                                  className="flex-1"
+                                  onClick={() => handleStatusUpdate(interview._id, "succeeded")}
+                                >
+                                  <CheckCircle2Icon className="h-4 w-4 mr-2" />
+                                  Pass
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  className="flex-1"
+                                  onClick={() => handleStatusUpdate(interview._id, "failed")}
+                                >
+                                  <XCircleIcon className="h-4 w-4 mr-2" />
+                                  Fail
+                                </Button>
+                              </div>
+                            )}
+                            <CommentDialog interviewId={interview._id} />
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </section>
+              )
+            );
+          }
         )}
       </div>
     </div>

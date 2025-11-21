@@ -11,19 +11,29 @@ function MeetingSetup({ onSetupComplete }: { onSetupComplete: () => void }) {
 
   const call = useCall();
 
+  // TOP LEVEL: Hooks are called unconditionally
+  useEffect(() => {
+    // Hook 1: Check if 'call' exists INSIDE the hook
+    if (call) {
+      if (isCameraDisabled) call.camera.disable();
+      else call.camera.enable();
+    }
+  }, [isCameraDisabled, call]); // Dependency array mein call ko bhi zaroor daalein
+
+  useEffect(() => {
+    // Hook 2: Check if 'call' exists INSIDE the hook
+    if (call) {
+      if (isMicDisabled) call.microphone.disable();
+      else call.microphone.enable();
+    }
+  }, [isMicDisabled, call]); // Dependency array mein call ko bhi zaroor daalein
+
+
+  // Hook calls ke baad condition check karna safe hai
   if (!call) return null;
 
-  useEffect(() => {
-    if (isCameraDisabled) call.camera.disable();
-    else call.camera.enable();
-  }, [isCameraDisabled, call.camera]);
-
-  useEffect(() => {
-    if (isMicDisabled) call.microphone.disable();
-    else call.microphone.enable();
-  }, [isMicDisabled, call.microphone]);
-
   const handleJoin = async () => {
+    // Agar yahaan tak code pahuncha hai toh 'call' zaroor hoga
     await call.join();
     onSetupComplete();
   };
