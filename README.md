@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+🚀 Interview Stream PlatformA secure, real-time online interview platform designed for conducting and managing technical interviews remotely. This application leverages a modern Next.js 14 stack for performance and a suite of real-time services for robust communication features.✨ Key Features🎥 Real-Time Video & Audio: Instant, high-quality peer-to-peer video and audio conferencing powered by Stream.🖥️ Screen Sharing: Allows candidates or interviewers to share their screens seamlessly for code review or collaborative problem-solving.🎬 Interview Recording: Includes the capability for screen recording to capture interview sessions for later review and compliance.🔒 Secure Authentication & Authorization: Robust user management, sign-up, and sign-in flows powered by Clerk.💾 State Management: Real-time data and file storage managed efficiently by Convex.🎨 Modern UI: A sleek, responsive user interface achieved with Tailwind CSS and the Shadcn UI component library.⚙️ Tech Stack & ArchitectureThis project is built using a modern, scalable, and high-performance stack:CategoryTechnologyPurposeFrameworkNext.js & TypeScriptFull-stack React framework utilizing Server Components for performance and type safety.AuthenticationClerkSecure user sign-up, sign-in, and authorization flows.Video/StreamingStreamHandles complex real-time video, audio, and screen-sharing infrastructure.Database/BackendConvexReal-time, file-storage, and transactional backend for application data.StylingTailwind CSS & Shadcn UIUtility-first CSS framework and customizable UI components.Server LogicServer Components, Layouts, Server ActionsLeverages the latest Next.js features for efficient server-side logic and data mutations.RoutingApp RouterUtilizes dynamic and static routes for flexible content serving.🚀 Getting StartedFollow these steps to set up and run the Interview Stream platform locally.1. PrerequisitesEnsure you have the following installed on your system:Node.js (v18 or higher)Git2. Clone and Install DependenciesClone the repository:Bashgit clone https://github.com/sam160203/interview-stream.git
+Navigate to the project directory:Bashcd interview-stream
+Install dependencies (choose one):Bashnpm install
+# or
+yarn install
+# or
+pnpm install
+# or
+bun install
+3. Set Up Environment Variables 🔑This project requires API keys and secrets from Clerk, Stream, and Convex to function.Create the local environment file: In the root of your project directory, create a new file named .env.Add required variables: Copy the structure below into your new .env file and replace the placeholder values (YOUR_..._KEY) with your actual keys.Note: These keys are private and must NEVER be committed to GitHub. The .gitignore file already ensures this security.Code snippet# --- CLERK AUTHENTICATION ---
+# Public key for Clerk (Client-side use)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=YOUR_CLERK_PUBLISHABLE_KEY 
+# Secret key for Clerk (Server-side use)
+CLERK_SECRET_KEY=YOUR_CLERK_SECRET_KEY
 
-## Getting Started
+# --- STREAM VIDEO CALLS ---
+# Public key for Stream (Client-side use)
+NEXT_PUBLIC_STREAM_API_KEY=YOUR_STREAM_API_KEY
+# Secret key for Stream (Server-side use)
+STREAM_API_SECRET=YOUR_STREAM_API_SECRET
 
-First, run the development server:
-
-```bash
-npm run dev
+# --- CONVEX DATABASE ---
+# Public URL for your Convex project (Client-side use)
+NEXT_PUBLIC_CONVEX_URL=YOUR_CONVEX_URL
+4. Run the Development ServerOnce your environment variables are set up, you can start the application:Bashnpm run dev
 # or
 yarn dev
 # or
 pnpm dev
+
+💡 Contribution
+Feel free to open issues or submit pull requests. All contributions are welcome!
 # or
 bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The application will be accessible at http://localhost:3000.
