@@ -3,9 +3,9 @@ kind: Service
 metadata:
   name: interview-stream-service
 spec:
-  type: LoadBalancer # Ya NodePort. Yeh traffic ko balance karta hai
+  type: LoadBalancer
   ports:
-  - port: 80 # Public port
-    targetPort: 3000 # Container ke andar ka port
+  - port: 80
+    targetPort: 3000
   selector:
-    app: interview-stream # Deployment ke workers ko dhoondhta hai
+    app: interview-stream
