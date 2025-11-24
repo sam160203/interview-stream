@@ -6,10 +6,10 @@ pipeline {
     environment {
         // SonarQube Details (Aapke live URLs)
         SONAR_PROJECT_KEY = 'interview-stream-app'
-        SONAR_HOST_URL = 'http://sonarqube.imcc.com/' 
+        SONAR_HOST_URL = 'http://192.168.20.250:9000/' 
 
         // Nexus Details
-        NEXUS_REGISTRY_DOCKER = 'nexus.imcc.com:8082' // Nexus Docker Registry URL/Port
+        NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' // Nexus Docker Registry URL/Port
         IMAGE_NAME = "interview-stream-app"
         
         // Kubernetes Details
