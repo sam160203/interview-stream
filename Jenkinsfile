@@ -135,7 +135,7 @@
 // }
 
 pipeline {
-    // FIX 1: Agent ko custom Pod definition se define karna
+    // FIX 1: Agent ko custom Pod definition se define karna (Declarative pipeline syntax)
     agent {
         kubernetes {
             yaml '''
@@ -171,11 +171,11 @@ spec:
 
   - name: dind
     image: docker:dind
-    args: ["--storage-driver=overlay2", "--insecure-registry=nexus.imcc.com:8082"] // Nexus IP/Port
+    args: ["--storage-driver=overlay2", "--insecure-registry=nexus.imcc.com:8082"] 
     securityContext:
       privileged: true
     env:
-    - name: DOCKER_TLS_CERTDIR"
+    - name: DOCKER_TLS_CERTDIR
       value: ""
     
   volumes:
@@ -186,24 +186,28 @@ spec:
         }
     }
     
-    // Environment Variables: Ab hum internal service names use karenge
+    // Environment Variables: Saare URLs aur Credentials yahan define honge
     environment {
-        // 🔑 FIX 2: Internal Service URLs ka use karna (Example)
-        SONAR_HOST_URL = 'http://sonarqube.imcc.com:9000' // Ya internal DNS name jo Admin de
-        NEXUS_REGISTRY_DOCKER = 'nexus.imcc.com:8082' // Ya internal DNS name jo Admin de
-        
+        // SonarQube Details (FIX 2: IP aur Port hardcode kiye gaye hain)
         SONAR_PROJECT_KEY = 'interview-stream-app'
+        SONAR_HOST_URL = 'http://192.168.20.250:9000/' 
+        
+        // Nexus Details
+        NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' 
         IMAGE_NAME = "interview-stream-app"
+        
+        // Kubernetes Details
+        K8S_DEPLOYMENT_NAME = 'interview-stream-deployment'
         K8S_DEPLOYMENT_YAML = 'k8s/deployment-and-secrets.yaml'
         K8S_SERVICE_YAML = 'k8s/service.yaml'
-        K8S_DEPLOYMENT_NAME = 'interview-stream-deployment'
     }
     
     stages {
         // Stage 1: Code Pull Karna
         stage('Checkout Code') {
             steps {
-                // FIX 3: Code 'node-app' container mein pull hoga (default workspace)
+                echo 'Checking out code from GitHub...'
+                // FIX 3: Sahi GitHub Credential ID ka use
                 git branch: 'master', 
                     credentialsId: 'github-credentials-sam', 
                     url: 'https://github.com/sam160203/interview-stream.git'
@@ -213,10 +217,15 @@ spec:
         // Stage 2: SonarQube Analysis
         stage('SonarQube Analysis') {
             steps {
-                // FIX 4: Sonar Scanner ko 'sonar-scanner' container mein chalana
-                container('sonar-scanner') {
-                    withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
+                echo 'Running static code analysis via Dockerized SonarQube Scanner...'
+                
+                // 1. Token ko Jenkins Credentials Manager se nikaalna
+                withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
+                    
+                    // FIX 4: Execution ko 'sonar-scanner' container mein wrap karna (dind service ka use)
+                    container('sonar-scanner') { 
                         sh """
+                        # Security Warning: Is command mein Token Inject ho raha hai
                         sonar-scanner \
                         -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                         -Dsonar.sources=. \
@@ -230,9 +239,10 @@ spec:
 
         // Stage 3: Quality Gate Check
         stage('Quality Gate Check') {
-            // FIX 5: Yeh step ab 'sonar-scanner' container ke baad chalega
             steps {
+                echo 'Checking SonarQube Quality Gate status...'
                 timeout(time: 5, unit: 'MINUTES') {
+                    // Yahan SonarQube Plugin ki zaroorat padegi
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -241,13 +251,15 @@ spec:
         // Stage 4: Docker Image Build
         stage('Build Docker Image') {
             steps {
-                // FIX 6: Docker commands 'dind' container mein chalaana
-                container('dind') {
-                    sh """
-                    COMMIT_SHA=\$(git rev-parse --short HEAD)
-                    echo "Building image tag: ${IMAGE_NAME}:\${COMMIT_SHA}"
-                    docker build -t ${IMAGE_NAME}:\${COMMIT_SHA} .
-                    """
+                echo 'Building Docker Image...'
+                script {
+                    def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                    env.IMAGE_TAG = gitCommit
+                    
+                    // FIX 5: Docker build command ko 'dind' container ke andar wrap karna
+                    container('dind') {
+                        sh "docker build -t ${IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    }
                 }
             }
         }
@@ -255,46 +267,52 @@ spec:
         // Stage 5: Push Image to Nexus
         stage('Push to Nexus') {
             steps {
+                echo "Pushing image to Nexus registry..."
+                
+                // 1. Image ko Nexus URL se tag karna (DIND ke andar)
                 container('dind') {
-                    // Git SHA nikalna
-                    sh 'export IMAGE_TAG=$(git rev-parse --short HEAD)'
+                     sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
 
-                    // Login aur Push karna
-                    withCredentials([usernamePassword(credentialsId: 'nexus-credentials-imcc', 
-                                                     usernameVariable: 'NEXUS_USER', 
-                                                     passwordVariable: 'NEXUS_PASS')]) {
-                        sh """
-                        docker tag ${IMAGE_NAME}:\$IMAGE_TAG ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:\$IMAGE_TAG
-                        docker login -u ${NEXUS_USER} -p ${NEXUS_PASS} ${NEXUS_REGISTRY_DOCKER}
-                        docker push ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:\$IMAGE_TAG
-                        """
+                // Nexus credentials ka use karke login aur push karna
+                withCredentials([usernamePassword(credentialsId: 'nexus-credentials-imcc', 
+                                                 usernameVariable: 'NEXUS_USER', 
+                                                 passwordVariable: 'NEXUS_PASS')]) {
+                    
+                    // 2. Docker login aur push ko 'dind' container ke andar chalaana
+                    container('dind') {
+                        sh "docker login -u ${NEXUS_USER} -p ${NEXUS_PASS} ${NEXUS_REGISTRY_DOCKER}" 
+                        sh "docker push ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                     }
                 }
+                echo 'Image successfully pushed to Nexus.'
             }
         }
 
         // Stage 6: Deploy to Kubernetes
         stage('Deploy to Kubernetes') {
             steps {
-                // FIX 7: kubectl commands 'kubectl' container mein chalaana
-                container('kubectl') {
-                    withKubeConfig(credentialsId: 'kubernetes-credentials') { 
-                        sh """
-                        export IMAGE_TAG=\$(git rev-parse --short HEAD)
-                        export FULL_IMAGE_URL="${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:\$IMAGE_TAG"
+                echo "Deploying image to Kubernetes cluster..."
+                
+                // Kubernetes credentials ka use karna
+                withKubeConfig(credentialsId: 'kubernetes-credentials') { 
+                    
+                    // FIX 6: kubectl commands ko 'kubectl' container ke andar chalaana
+                    container('kubectl') {
+                        def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                        env.IMAGE_TAG = gitCommit
                         
-                        echo "Deploying image: \$FULL_IMAGE_URL"
+                        // 1. Image Tag Replace karna
+                        sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
                         
-                        # Image Tag Replace karna
-                        sed -i "s|PLACEHOLDER_IMAGE_TAG|\$FULL_IMAGE_URL|g" ${K8S_DEPLOYMENT_YAML}
+                        // 2. Deployment aur Secrets Apply Karna
+                        sh "kubectl apply -f ${K8S_DEPLOYMENT_YAML}"
                         
-                        # Deployment aur Service Apply Karna
-                        kubectl apply -f ${K8S_DEPLOYMENT_YAML}
-                        kubectl apply -f ${K8S_SERVICE_YAML}
+                        // 3. Service Apply Karna
+                        sh "kubectl apply -f ${K8S_SERVICE_YAML}"
                         
-                        # Safalta ka intezaar karna
-                        kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}
-                    """
+                        // 4. Deployment ki safalta ka intezaar karna
+                        sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}"
                     }
                 }
             }
