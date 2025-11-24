@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: interview-stream-service
+spec:
+  type: LoadBalancer # Ya NodePort. Yeh traffic ko balance karta hai
+  ports:
+  - port: 80 # Public port
+    targetPort: 3000 # Container ke andar ka port
+  selector:
+    app: interview-stream # Deployment ke workers ko dhoondhta hai
