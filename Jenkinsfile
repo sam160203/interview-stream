@@ -32,17 +32,19 @@ pipeline {
         // Stage 2: Code Quality Check (SonarQube)
         stage('SonarQube Analysis') {
             steps {
-                echo 'Running static code analysis via SonarQube...'
+                echo 'Running static code analysis via SonarQube using Docker...'
                 
-                // FIX: Tool Configuration ko bypass karke withCredentials se token dena
+                // 1. Token ko Jenkins Credentials Manager se nikaalna
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
-                    // Scanner ko seedhe chalaana (Assumption: /usr/bin/sonar-scanner available hai)
+                    
+                    // 2. SonarQube Scanner ko ek alag, SonarQube-specific Docker image mein chalaana
+                    // Yeh sabse zaroori fix hai: hum sonar-scanner ka official image use karenge
                     sh """
-                    sonar-scanner \
-                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                    -Dsonar.sources=. \
-                    -Dsonar.host.url=${SONAR_HOST_URL} \
-                    -Dsonar.login=${SONAR_TOKEN}
+                    docker run --rm \
+                    -e SONAR_HOST_URL='${SONAR_HOST_URL}' \
+                    -e SONAR_LOGIN='${SONAR_TOKEN}' \
+                    -v \$(pwd):/usr/src \
+                    sonarsource/sonar-scanner-cli
                     """
                 }
             }
