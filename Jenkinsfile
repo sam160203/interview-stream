@@ -1,4 +1,5 @@
 pipeline {
+    // FIX 1: Agent ko hamesha 'any' rakhte hain, aur Docker commands 'container('dind')' ke andar chalaate hain
     agent any 
     
     // Environment Variables: Saare URLs aur Credentials yahan define honge
@@ -32,20 +33,24 @@ pipeline {
         // Stage 2: Code Quality Check (SonarQube)
         stage('SonarQube Analysis') {
             steps {
-                echo 'Running static code analysis via SonarQube using Docker...'
+                echo 'Running static code analysis via Dockerized SonarQube Scanner...'
                 
                 // 1. Token ko Jenkins Credentials Manager se nikaalna
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
                     
-                    // 2. SonarQube Scanner ko ek alag, SonarQube-specific Docker image mein chalaana
-                    // Yeh sabse zaroori fix hai: hum sonar-scanner ka official image use karenge
-                    sh """
-                    docker run --rm \
-                    -e SONAR_HOST_URL='${SONAR_HOST_URL}' \
-                    -e SONAR_LOGIN='${SONAR_TOKEN}' \
-                    -v \$(pwd):/usr/src \
-                    sonarsource/sonar-scanner-cli
-                    """
+                    // FIX 2: Execution ko 'dind' container ke andar wrap karna
+                    container('dind') { 
+                        // SonarQube Scanner ko official image mein chalaana
+                        sh """
+                        docker run --rm \
+                        -e SONAR_PROJECTKEY=${SONAR_PROJECT_KEY} \
+                        -e SONAR_SOURCES=. \
+                        -e SONAR_HOST_URL='${SONAR_HOST_URL}' \
+                        -e SONAR_LOGIN='${SONAR_TOKEN}' \
+                        -v \$(pwd):/usr/src \
+                        sonarsource/sonar-scanner-cli
+                        """
+                    }
                 }
             }
         }
@@ -55,7 +60,6 @@ pipeline {
             steps {
                 echo 'Checking SonarQube Quality Gate status...'
                 timeout(time: 5, unit: 'MINUTES') {
-                    // Requires SonarQube Plugin (not scanner tool) to be installed
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -69,8 +73,10 @@ pipeline {
                     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     env.IMAGE_TAG = gitCommit
                     
-                    // Docker build command
-                    sh "docker build -t ${IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    // FIX 3: Docker build command ko 'dind' container ke andar wrap karna
+                    container('dind') {
+                        sh "docker build -t ${IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    }
                 }
             }
         }
@@ -80,17 +86,21 @@ pipeline {
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // 1. Image ko Nexus URL se tag karna
-                sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+                // FIX 4: Image Tagging ko 'dind' ke andar chalaana
+                container('dind') {
+                     sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
 
-                // 2. Nexus credentials (nexus-credentials-imcc) ka use karna
+                // Nexus credentials ka use karke login aur push karna
                 withCredentials([usernamePassword(credentialsId: 'nexus-credentials-imcc', 
                                                  usernameVariable: 'NEXUS_USER', 
                                                  passwordVariable: 'NEXUS_PASS')]) {
                     
-                    // 3. Docker login and push
-                    sh "docker login -u ${NEXUS_USER} -p ${NEXUS_PASS} ${NEXUS_REGISTRY_DOCKER}" 
-                    sh "docker push ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+                    // FIX 5: Docker login aur push ko 'dind' container ke andar chalaana
+                    container('dind') {
+                        sh "docker login -u ${NEXUS_USER} -p ${NEXUS_PASS} ${NEXUS_REGISTRY_DOCKER}" 
+                        sh "docker push ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+                    }
                 }
                 echo 'Image successfully pushed to Nexus.'
             }
@@ -104,17 +114,20 @@ pipeline {
                 // Kubernetes credentials ka use karna
                 withKubeConfig(credentialsId: 'kubernetes-credentials') { 
                     
-                    // 1. Image Tag Replace karna
-                    sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
-                    
-                    // 2. Deployment aur Secrets Apply Karna
-                    sh "kubectl apply -f ${K8S_DEPLOYMENT_YAML}"
-                    
-                    // 3. Service Apply Karna
-                    sh "kubectl apply -f ${K8S_SERVICE_YAML}"
-                    
-                    // 4. Deployment ki safalta ka intezaar karna
-                    sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}"
+                    // FIX 6: kubectl aur sed commands ko 'dind' container ke andar chalaana
+                    container('dind') {
+                        // 1. Image Tag Replace karna
+                        sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
+                        
+                        // 2. Deployment aur Secrets Apply Karna
+                        sh "kubectl apply -f ${K8S_DEPLOYMENT_YAML}"
+                        
+                        // 3. Service Apply Karna
+                        sh "kubectl apply -f ${K8S_SERVICE_YAML}"
+                        
+                        // 4. Deployment ki safalta ka intezaar karna
+                        sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}"
+                    }
                 }
             }
         }
