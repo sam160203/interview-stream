@@ -27,12 +27,24 @@ pipeline {
             }
         }
         
-        // Stage 2: Code Quality Check (SonarQube)
+        // ... (Stage 1: Checkout Code ke baad) ...
+
+        // Stage 2: Code Quality Check (SonarQube) - ALTERNATE SOLUTION
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running static code analysis via SonarQube...'
-                withSonarQubeEnv('SonarQube-IMCC') { // 'SonarQube-IMCC' naam se configure kiya gaya tha
-                    sh "${SCANNER_HOME}/bin/sonar-scanner -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.sources=."
+                
+                // 1. Token ko Jenkins Credentials Manager se nikaalna
+                withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
+                    
+                    // 2. Scanner ko seedhe sh command mein chalaana
+                    sh """
+                    /usr/bin/sonar-scanner \
+                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                    -Dsonar.sources=. \
+                    -Dsonar.host.url=${SONAR_HOST_URL} \
+                    -Dsonar.login=${SONAR_TOKEN} // Token ko yahan pass kiya gaya hai
+                    """
                 }
             }
         }
@@ -41,11 +53,18 @@ pipeline {
         stage('Quality Gate Check') {
             steps {
                 echo 'Checking SonarQube Quality Gate status...'
+                
+                // Hum ab bhi waitForQualityGate use kar sakte hain agar SonarQube Plugin install hai.
+                // Agar woh bhi kaam na kare, toh hum 'curl' command se result fetch kar sakte hain.
+                
+                // Assumption: SonarQube Plugin ka basic part install hai jo waitForQualityGate chala sakta hai.
                 timeout(time: 5, unit: 'MINUTES') {
+                    // Requires SonarQube Plugin (not scanner tool) to be installed
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
+
         
         // Stage 4: Docker Image Build
         stage('Build Docker Image') {
