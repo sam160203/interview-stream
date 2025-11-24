@@ -22,7 +22,7 @@ pipeline {
             steps {
                 echo 'Checking out code from GitHub...'
                 git branch: 'master', 
-                    credentialsId: 'github-credentials', 
+                    credentialsId: 'github-credentials-sam', 
                     url: 'https://github.com/sam160203/interview-stream.git'
             }
         }
