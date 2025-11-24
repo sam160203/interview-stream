@@ -135,60 +135,11 @@
 // }
 
 pipeline {
-    // FIX 1: Agent ko custom Pod definition se define karna (Declarative pipeline syntax)
-    agent {
-        kubernetes {
-            yaml '''
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-
-  - name: node-app
-    image: node:18-alpine
-    command: ['cat']
-    tty: true
-
-  - name: sonar-scanner
-    image: sonarsource/sonar-scanner-cli
-    command: ['cat']
-    tty: true
-
-  - name: kubectl
-    image: bitnami/kubectl:latest
-    command: ['cat']
-    tty: true
-    securityContext:
-      runAsUser: 0
-      readOnlyRootFilesystem: false
-    env:
-    - name: KUBECONFIG
-      value: /kube/config
-    volumeMounts:
-    - name: kubeconfig-secret
-      mountPath: /kube/config
-      subPath: kubeconfig
-
-  - name: dind
-    image: docker:dind
-    args: ["--storage-driver=overlay2", "--insecure-registry=nexus.imcc.com:8082"] 
-    securityContext:
-      privileged: true
-    env:
-    - name: DOCKER_TLS_CERTDIR
-      value: ""
-    
-  volumes:
-  - name: kubeconfig-secret
-    secret:
-      secretName: kubeconfig-secret
-'''
-        }
-    }
+    agent any 
     
     // Environment Variables: Saare URLs aur Credentials yahan define honge
     environment {
-        // SonarQube Details (FIX 2: IP aur Port hardcode kiye gaye hain)
+        // SonarQube Details (FIX: IP and Port hardcode kiye gaye hain)
         SONAR_PROJECT_KEY = 'interview-stream-app'
         SONAR_HOST_URL = 'http://192.168.20.250:9000/' 
         
@@ -207,7 +158,6 @@ spec:
         stage('Checkout Code') {
             steps {
                 echo 'Checking out code from GitHub...'
-                // FIX 3: Sahi GitHub Credential ID ka use
                 git branch: 'master', 
                     credentialsId: 'github-credentials-sam', 
                     url: 'https://github.com/sam160203/interview-stream.git'
@@ -219,13 +169,9 @@ spec:
             steps {
                 echo 'Running static code analysis via Dockerized SonarQube Scanner...'
                 
-                // 1. Token ko Jenkins Credentials Manager se nikaalna
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
-                    
-                    // FIX 4: Execution ko 'sonar-scanner' container mein wrap karna (dind service ka use)
                     container('sonar-scanner') { 
                         sh """
-                        # Security Warning: Is command mein Token Inject ho raha hai
                         sonar-scanner \
                         -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                         -Dsonar.sources=. \
@@ -242,7 +188,6 @@ spec:
             steps {
                 echo 'Checking SonarQube Quality Gate status...'
                 timeout(time: 5, unit: 'MINUTES') {
-                    // Yahan SonarQube Plugin ki zaroorat padegi
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -252,11 +197,11 @@ spec:
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image...'
-                script {
+                // FIX: Variable definition ko script block mein wrap kiya gaya hai
+                script { 
                     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     env.IMAGE_TAG = gitCommit
                     
-                    // FIX 5: Docker build command ko 'dind' container ke andar wrap karna
                     container('dind') {
                         sh "docker build -t ${IMAGE_NAME}:${env.IMAGE_TAG} ."
                     }
@@ -269,17 +214,15 @@ spec:
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // 1. Image ko Nexus URL se tag karna (DIND ke andar)
-                container('dind') {
-                     sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+                // FIX: Variable definition ko script block mein wrap kiya gaya hai
+                script {
+                    sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
 
-                // Nexus credentials ka use karke login aur push karna
                 withCredentials([usernamePassword(credentialsId: 'nexus-credentials-imcc', 
                                                  usernameVariable: 'NEXUS_USER', 
                                                  passwordVariable: 'NEXUS_PASS')]) {
                     
-                    // 2. Docker login aur push ko 'dind' container ke andar chalaana
                     container('dind') {
                         sh "docker login -u ${NEXUS_USER} -p ${NEXUS_PASS} ${NEXUS_REGISTRY_DOCKER}" 
                         sh "docker push ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
@@ -297,10 +240,13 @@ spec:
                 // Kubernetes credentials ka use karna
                 withKubeConfig(credentialsId: 'kubernetes-credentials') { 
                     
-                    // FIX 6: kubectl commands ko 'kubectl' container ke andar chalaana
+                    // FIX: kubectl commands ko 'kubectl' container ke andar chalaana
                     container('kubectl') {
-                        def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                        env.IMAGE_TAG = gitCommit
+                        // FIX: Var definition ko script block mein wrap karna
+                        script {
+                            def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                            env.IMAGE_TAG = gitCommit
+                        }
                         
                         // 1. Image Tag Replace karna
                         sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
