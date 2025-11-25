@@ -8,7 +8,7 @@ pipeline {
         SONAR_HOST_URL = 'http://192.168.20.250:9000/' 
         
         // Nexus Details
-        NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' 
+        NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' // FIX: Hardcoded IP aur Port
         IMAGE_NAME = "interview-stream-app"
         
         // Kubernetes Details
@@ -22,6 +22,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo 'Checking out code from GitHub...'
+                // FIX: Sahi GitHub Credential ID ka use
                 git branch: 'master', 
                     credentialsId: 'github-credentials-sam', 
                     url: 'https://github.com/sam160203/interview-stream.git'
@@ -34,6 +35,7 @@ pipeline {
                 echo 'Running static code analysis via Dockerized SonarQube Scanner...'
                 
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
+                    // FIX: Execution ko 'dind' container ke andar wrap karna
                     container('dind') { 
                         sh """
                         docker run --rm \
@@ -80,7 +82,7 @@ pipeline {
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // FIX 2: Tagging ko script block mein wrap kiya gaya hai
+                // FIX 2: Tagging ko script block mein wrap kiya gaya hai (agar image tag variable hai)
                 script {
                      sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
