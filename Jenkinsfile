@@ -100,34 +100,34 @@ pipeline {
             }
         }
 
-//         // Stage 6: Deploy to Kubernetes
-//         stage('Deploy to Kubernetes') {
-//             steps {
-//                 echo "Deploying image to Kubernetes cluster..."
+    //     // Stage 6: Deploy to Kubernetes
+    //     stage('Deploy to Kubernetes') {
+    //         steps {
+    //             echo "Deploying image to Kubernetes cluster..."
                 
-//                 withKubeConfig(credentialsId: 'kubernetes-credentials') { 
+    //             withKubeConfig(credentialsId: 'kubernetes-credentials') { 
                     
-//                     container('kubectl') {
-//                         // FIX 6: Variable definition ko script block mein wrap kiya gaya hai
-//                         script {
-//                             def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-//                             env.IMAGE_TAG = gitCommit
-//                         }
+    //                 container('kubectl') {
+    //                     // FIX 6: Variable definition ko script block mein wrap kiya gaya hai
+    //                     script {
+    //                         def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+    //                         env.IMAGE_TAG = gitCommit
+    //                     }
                         
-//                         // 1. Image Tag Replace karna
-//                         sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
+    //                     // 1. Image Tag Replace karna
+    //                     sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
                         
-//                         // 2. Deployment aur Secrets Apply Karna
-//                         sh "kubectl apply -f ${K8S_DEPLOYMENT_YAML}"
+    //                     // 2. Deployment aur Secrets Apply Karna
+    //                     sh "kubectl apply -f ${K8S_DEPLOYMENT_YAML}"
                         
-//                         // 3. Service Apply Karna
-//                         sh "kubectl apply -f ${K8S_SERVICE_YAML}"
+    //                     // 3. Service Apply Karna
+    //                     sh "kubectl apply -f ${K8S_SERVICE_YAML}"
                         
-//                         // 4. Deployment ki safalta ka intezaar karna
-//                         sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}"
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+    //                     // 4. Deployment ki safalta ka intezaar karna
+    //                     sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}"
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+}
