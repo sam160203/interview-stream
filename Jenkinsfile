@@ -5,7 +5,7 @@ pipeline {
     environment {
         // SonarQube Details (FIX: IP aur Port hardcode kiye gaye hain)
         SONAR_PROJECT_KEY = 'interview-stream-app'
-        SONAR_HOST_URL = 'http://192.168.20.250:9000/' 
+        SONAR_HOST_URL = 'http://sonarqube.imcc.com' 
         
         // Nexus Details
         NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' // FIX: Hardcoded IP aur Port
