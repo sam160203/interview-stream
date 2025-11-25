@@ -58,7 +58,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image...'
-                // FIX 1: Variable definition ko script block mein wrap kiya gaya hai
                 script { 
                     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     env.IMAGE_TAG = gitCommit
@@ -75,7 +74,6 @@ pipeline {
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // FIX 2: Tagging command ko seedhe 'sh' mein rakha hai (dind ke andar)
                 container('dind') {
                      sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
