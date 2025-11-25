@@ -22,7 +22,6 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo 'Checking out code from GitHub...'
-                // FIX: Sahi GitHub Credential ID ka use
                 git branch: 'master', 
                     credentialsId: 'github-credentials-sam', 
                     url: 'https://github.com/sam160203/interview-stream.git'
@@ -82,8 +81,8 @@ pipeline {
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // FIX 2: Tagging ko script block mein wrap kiya gaya hai (agar image tag variable hai)
-                script {
+                // FIX 2: Tagging command ko seedhe 'sh' mein rakha hai (dind ke andar)
+                container('dind') {
                      sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
 
