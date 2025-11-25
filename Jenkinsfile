@@ -10,11 +10,6 @@ pipeline {
         // Nexus Details
         NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' // FIX: Hardcoded IP aur Port
         IMAGE_NAME = "interview-stream-app"
-        
-        // Kubernetes Details
-        K8S_DEPLOYMENT_NAME = 'interview-stream-deployment'
-        K8S_DEPLOYMENT_YAML = 'k8s/deployment-and-secrets.yaml'
-        K8S_SERVICE_YAML = 'k8s/service.yaml'
     }
     
     stages {
@@ -34,7 +29,6 @@ pipeline {
                 echo 'Running static code analysis via Dockerized SonarQube Scanner...'
                 
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
-                    // FIX: Execution ko 'dind' container ke andar wrap karna
                     container('dind') { 
                         sh """
                         docker run --rm \
@@ -99,34 +93,6 @@ pipeline {
             }
         }
 
-        // Stage 6: Deploy to Kubernetes
-        stage('Deploy to Kubernetes') {
-            steps {
-                echo "Deploying image to Kubernetes cluster..."
-                
-                withKubeConfig(credentialsId: 'kubernetes-credentials') { 
-                    
-                    container('kubectl') {
-                        // FIX 3: Variable definition ko script block mein wrap kiya gaya hai
-                        script {
-                            def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                            env.IMAGE_TAG = gitCommit
-                        }
-                        
-                        // 1. Image Tag Replace karna
-                        sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
-                        
-                        // 2. Deployment aur Secrets Apply Karna
-                        sh "kubectl apply -f ${K8S_DEPLOYMENT_YAML}"
-                        
-                        // 3. Service Apply Karna
-                        sh "kubectl apply -f ${K8S_SERVICE_YAML}"
-                        
-                        // 4. Deployment ki safalta ka intezaar karna
-                        sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME}"
-                    }
-                }
-            }
-        }
+        // ❌ Stage 6: Deploy to Kubernetes - HATA DIYA GAYA HAI
     }
 }
