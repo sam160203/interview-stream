@@ -4,12 +4,12 @@ pipeline {
     
     // Environment Variables: Saare URLs aur Credentials yahan define honge
     environment {
-        // SonarQube Details (Aapke live URLs)
+        // SonarQube Details (FIX 2: IP aur Port hardcode kiye gaye hain)
         SONAR_PROJECT_KEY = 'interview-stream-app'
         SONAR_HOST_URL = 'http://192.168.20.250:9000/' 
-
+        
         // Nexus Details
-        NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' // Nexus Docker Registry URL/Port
+        NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' // FIX: Hardcoded IP aur Port
         IMAGE_NAME = "interview-stream-app"
         
         // Kubernetes Details
@@ -23,14 +23,14 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo 'Checking out code from GitHub...'
-                // FIX: Sahi GitHub Credential ID ka use
+                // FIX 3: Sahi GitHub Credential ID ka use
                 git branch: 'master', 
                     credentialsId: 'github-credentials-sam', 
                     url: 'https://github.com/sam160203/interview-stream.git'
             }
         }
         
-        // Stage 2: Code Quality Check (SonarQube)
+        // Stage 2: SonarQube Analysis
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running static code analysis via Dockerized SonarQube Scanner...'
@@ -38,9 +38,8 @@ pipeline {
                 // 1. Token ko Jenkins Credentials Manager se nikaalna
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
                     
-                    // FIX 2: Execution ko 'dind' container ke andar wrap karna
-                    container('dind') { 
-                        // SonarQube Scanner ko official image mein chalaana
+                    // FIX 4: Execution ko 'sonar-scanner' container mein wrap karna (jahan dind service available hai)
+                    container('dind') { // Dind container mein hi Sonar Scanner chalate hain
                         sh """
                         docker run --rm \
                         -e SONAR_PROJECTKEY=${SONAR_PROJECT_KEY} \
@@ -73,7 +72,7 @@ pipeline {
                     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     env.IMAGE_TAG = gitCommit
                     
-                    // FIX 3: Docker build command ko 'dind' container ke andar wrap karna
+                    // FIX 5: Docker build command ko 'dind' container ke andar wrap karna
                     container('dind') {
                         sh "docker build -t ${IMAGE_NAME}:${env.IMAGE_TAG} ."
                     }
@@ -86,7 +85,7 @@ pipeline {
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // FIX 4: Image Tagging ko 'dind' ke andar chalaana
+                // FIX 6: Image Tagging ko 'dind' ke andar chalaana
                 container('dind') {
                      sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
@@ -96,7 +95,7 @@ pipeline {
                                                  usernameVariable: 'NEXUS_USER', 
                                                  passwordVariable: 'NEXUS_PASS')]) {
                     
-                    // FIX 5: Docker login aur push ko 'dind' container ke andar chalaana
+                    // FIX 7: Docker login aur push ko 'dind' container ke andar chalaana
                     container('dind') {
                         sh "docker login -u ${NEXUS_USER} -p ${NEXUS_PASS} ${NEXUS_REGISTRY_DOCKER}" 
                         sh "docker push ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
@@ -114,8 +113,11 @@ pipeline {
                 // Kubernetes credentials ka use karna
                 withKubeConfig(credentialsId: 'kubernetes-credentials') { 
                     
-                    // FIX 6: kubectl aur sed commands ko 'dind' container ke andar chalaana
-                    container('dind') {
+                    // FIX 8: kubectl commands ko 'kubectl' container ke andar chalaana
+                    container('kubectl') {
+                        def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                        env.IMAGE_TAG = gitCommit
+                        
                         // 1. Image Tag Replace karna
                         sh "sed -i 's|PLACEHOLDER_IMAGE_TAG|${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}|g' ${K8S_DEPLOYMENT_YAML}"
                         

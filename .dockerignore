@@ -1,8 +1,7 @@
-node_modules
-.next
-.git
-.gitignore
-Dockerfile
-docker-compose.yml
-README.md
-npm-debug.log
+git add .gitignore
+git commit -m "feat: Updated .gitignore for Next.js, excluding .env and build files"
+git push
+
+Isse aapka **`.env`** file hamesha private rahega.
+
+Ab aapko **Jenkinsfile** aur **K8s YAMLs** provide karne honge taaki main unhein check kar sakun.
