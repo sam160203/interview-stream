@@ -11,7 +11,7 @@ pipeline {
         NEXUS_REGISTRY_DOCKER = '192.168.20.250:8082' 
         IMAGE_NAME = "interview-stream-app"
         
-        // K8s details (Ab sirf variable definition ke liye)
+        // Kubernetes Details
         K8S_DEPLOYMENT_NAME = 'interview-stream-deployment'
         K8S_DEPLOYMENT_YAML = 'k8s/deployment-and-secrets.yaml'
         K8S_SERVICE_YAML = 'k8s/service.yaml'
@@ -34,7 +34,7 @@ pipeline {
                 echo 'Running static code analysis via Dockerized SonarQube Scanner...'
                 
                 withCredentials([string(credentialsId: 'sonarqube-token-imcc', variable: 'SONAR_TOKEN')]) {
-                    // FIX: Execution ko 'dind' container ke andar wrap karna
+                    // FIX 1: Execution ko 'dind' container ke andar wrap karna
                     container('dind') { 
                         sh """
                         docker run --rm \
@@ -64,7 +64,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image...'
-                // FIX 1: Variable definition ko script block mein wrap kiya gaya hai
+                // FIX 2: Variable definition ko script block mein wrap kiya gaya hai
                 script { 
                     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     env.IMAGE_TAG = gitCommit
@@ -81,7 +81,7 @@ pipeline {
             steps {
                 echo "Pushing image to Nexus registry..."
                 
-                // FIX 2: Tagging command ko seedhe 'sh' mein rakha hai (dind ke andar)
+                // FIX 3: Tagging command ko seedhe 'sh' mein rakha hai (dind ke andar)
                 container('dind') {
                      sh "docker tag ${IMAGE_NAME}:${env.IMAGE_TAG} ${NEXUS_REGISTRY_DOCKER}/${IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
@@ -107,7 +107,7 @@ pipeline {
                 withKubeConfig(credentialsId: 'kubernetes-credentials') { 
                     
                     container('kubectl') {
-                        // FIX 3: Variable definition ko script block mein wrap kiya gaya hai
+                        // FIX 4: Variable definition ko script block mein wrap kiya gaya hai
                         script {
                             def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                             env.IMAGE_TAG = gitCommit
